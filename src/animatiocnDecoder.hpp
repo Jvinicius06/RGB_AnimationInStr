@@ -14,21 +14,43 @@ typedef struct list {
     list* next;
 } listAnimation_t;
 
-listAnimation_t startAnimation;
-listAnimation_t actAnimation;
+listAnimation_t* startAnimation = NULL;
+listAnimation_t* actAnimation = NULL;
 animation_t status;
 animation_t act;
 
-animation_t* addAniation() {}
 listAnimation_t* getLastAniation(bool penult) {
-    listAnimation_t* aux = &startAnimation;
+    listAnimation_t* aux = startAnimation;
+    if (aux == NULL) return NULL;
     while (aux->next != NULL) {
         aux = aux->next;
     }
     return aux;
 }
 
-void clearAniation() {}
+void addAniation(animation_t index) {
+    listAnimation_t* newAnimation = new listAnimation_t();
+    memcpy(&newAnimation->value, &index, sizeof(animation_t));
+    if (startAnimation == NULL) {
+        startAnimation = newAnimation;
+        return;
+    }
+    listAnimation_t* aux = startAnimation;
+    while (aux->next != NULL) {
+        aux = aux->next;
+    }
+    aux->next = newAnimation;
+}
+
+void clearAniation() {
+    listAnimation_t* aux = startAnimation;
+    if (aux == NULL) return;
+    while (startAnimation != NULL) {
+        aux = startAnimation;
+        startAnimation = startAnimation->next;
+        delete aux;
+    }
+}
 
 //**************************************************
 //                 Log Animation
@@ -79,6 +101,7 @@ bool isNumber(char index) { return isDigit(index); }
  * @return uint8_t
  */
 uint8_t processingChar(char index, animation_t* ani) {
+    // Serial.println(index);
     if (isNumber(index)) {
         // adiciona todos os numeros em um buffer auxiliar para ser processado
         // mais para frente
@@ -91,35 +114,37 @@ uint8_t processingChar(char index, animation_t* ani) {
                 printSetValue("R", ani->R);
             } else if (state == SETBLUE) {
                 ani->B = getValueOfAuxBuffer();
-                printSetValue("B", ani->R);
+                printSetValue("B", ani->B);
             } else if (state == SETGREEN) {
                 ani->G = getValueOfAuxBuffer();
-                printSetValue("G", ani->R);
+                printSetValue("G", ani->G);
             } else if (state == SETTIMEFADE) {
                 ani->fade = getValueOfAuxBuffer();
-                printSetValue("Fade", ani->R);
+                printSetValue("Fade", ani->fade);
             } else if (state == SETDELAY) {
                 ani->time = getValueOfAuxBuffer();
-                printSetValue("Delay", ani->R);
+                printSetValue("Delay", ani->time);
             }
+            state = GETWHOVALUE;  // reseta o state pois o proximo char nao é
+                                  // numerico
         }
         countAuxBuffer = 0;
         memset(auxBuffer, 0, MAXAUXBUFFERLEN);
         // processamento dos caracteres
-        if (',') {
+        if (index == ',') {
             return NEXTANIMATION;
-        } else if ('R') {
+        } else if (index == 'R') {
             state = SETRED;
-        } else if ('G') {
+        } else if (index == 'G') {
             state = SETGREEN;
-        } else if ('B') {
+        } else if (index == 'B') {
             state = SETBLUE;
-        } else if ('F') {
+        } else if (index == 'F') {
             state = SETTIMEFADE;
-        } else if ('W') {
+        } else if (index == 'W') {
             state = SETDELAY;
-        } else if ('S') {
-        } else if ('L') {
+        } else if (index == 'S') {
+        } else if (index == 'L') {
         } else {
             return ERRROR;
         }
@@ -134,17 +159,25 @@ uint8_t processingChar(char index, animation_t* ani) {
  * @param len tamanho em caracteres da animcacao
  */
 void setAnimation(const char* animation, uint16_t len) {
+    clearAniation();
     uint16_t i = 0;
     animation_t ani;
     memset(&ani, 0, sizeof(animation_t));
-    memset(const_cast<char*>(animation + len), ',', 1);
     ani.R = ani.G = ani.B = 0xff;
+
+    if (*(animation + len) != ',') {
+        memset(const_cast<char*>(animation + len), ',', 1);
+    }
     state = GETWHOVALUE;
     while (i <= len) {
         uint8_t status = processingChar(*(animation + i), &ani);
         if (status == NORMAL) {
             // esse status indica que a operacao ainda esta acontecendo
         } else if (status == NEXTANIMATION) {
+            addAniation(ani);
+            memset(&ani, 0, sizeof(animation_t));
+            ani.R = ani.G = ani.B = 0xff;
+            Serial.println("NEXTANIMATION");
             // esse satatus indica que o evevnto de animacao esta completo
         } else {
             // idicador de erro no texto
@@ -158,4 +191,49 @@ void setAnimation(const char* animation, uint16_t len) {
 //        LOOP ANIMATION
 //*********************************
 
-void loopAnimation() {}
+typedef void handleLeds_t(uint8_t, uint8_t, uint8_t);
+
+handleLeds_t* hanldesLeds = NULL;
+
+void setHanldesLeds(handleLeds_t* index) { hanldesLeds = index; }
+
+void loopAnimation() {
+    if (hanldesLeds == NULL) return;
+    if (startAnimation == NULL) return;
+    if (actAnimation == NULL) {
+        actAnimation = startAnimation;
+        act = actAnimation->value;
+    }
+    // seta RGB caso nao setado
+    if (act.R == 0xff) act.R = status.R;
+    if (act.G == 0xff) act.G = status.G;
+    if (act.B == 0xff) act.B = status.B;
+
+    // coleta os tempos
+    if ((act.fade > 0 || act.time > 0) && act.at == 0) {
+        act.at = millis();  // seta o tempo de inicio da fade somende se ouver
+                            // um fade ou um temer
+    }
+    uint32_t timeOUT = act.at + act.fade + act.time;
+
+    // processamento em tempo real
+    uint32_t actTime = millis();
+    // Serial.println(act.fade);
+    if (actTime < timeOUT) {
+        uint32_t actTimeFade = max((act.at + act.fade), actTime);
+        uint8_t R = map(actTime, act.at, actTimeFade, status.R, act.R);
+        uint8_t G = map(actTime, act.at, actTimeFade, status.G, act.G);
+        uint8_t B = map(actTime, act.at, actTimeFade, status.B, act.B);
+        if (hanldesLeds != NULL) {
+            (*hanldesLeds)(R, G, B);
+        }
+    } else {  // proximo estagio da animacao
+        memcpy(&status, &act, sizeof(animation_t)); // copia o ultimo status para setar o proximo
+        actAnimation = actAnimation->next;
+        if (actAnimation != NULL) {
+            act = actAnimation->value;
+        }
+    }
+
+    // actAnimation->value
+}
