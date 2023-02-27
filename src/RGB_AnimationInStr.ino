@@ -13,8 +13,8 @@ Adafruit_NeoPixel strip =
 
 const char* animation =
     "R245B0G0F3000,"
-    "R0B0G245F3000,"
-    "R0B245G0F3000";
+    "R0B0G245W10000,"
+    "R0B245G0F3000w3000";
 
 void setup() {
     Serial.begin(115200);

@@ -220,15 +220,24 @@ void loopAnimation() {
     uint32_t actTime = millis();
     // Serial.println(act.fade);
     if (actTime < timeOUT) {
-        uint32_t actTimeFade = max((act.at + act.fade), actTime);
-        uint8_t R = map(actTime, act.at, actTimeFade, status.R, act.R);
-        uint8_t G = map(actTime, act.at, actTimeFade, status.G, act.G);
-        uint8_t B = map(actTime, act.at, actTimeFade, status.B, act.B);
+        uint8_t R = act.R;
+        uint8_t G = act.G;
+        uint8_t B = act.B;
+
+        if (act.fade > 0) {  // somente da fade se ouver
+            uint32_t actTimeFade = max((act.at + act.fade), actTime);
+            R = map(actTime, act.at, actTimeFade, status.R, act.R);
+            G = map(actTime, act.at, actTimeFade, status.G, act.G);
+            B = map(actTime, act.at, actTimeFade, status.B, act.B);
+        }
+        // Serial.println(actTimeFade);
         if (hanldesLeds != NULL) {
             (*hanldesLeds)(R, G, B);
         }
     } else {  // proximo estagio da animacao
-        memcpy(&status, &act, sizeof(animation_t)); // copia o ultimo status para setar o proximo
+        memcpy(
+            &status, &act,
+            sizeof(animation_t));  // copia o ultimo status para setar o proximo
         actAnimation = actAnimation->next;
         if (actAnimation != NULL) {
             act = actAnimation->value;
