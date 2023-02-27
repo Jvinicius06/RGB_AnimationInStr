@@ -12,9 +12,9 @@ Adafruit_NeoPixel strip =
 #define PINLEDB 0
 
 const char* animation =
-    "R245B0G0F3000,"
-    "R0B0G245W10000,"
-    "R0B245G0F3000w3000";
+    "R245B0G0F50,"
+    "R0B0G245F1000,"
+    "R0B245G0F300";
 
 void setup() {
     Serial.begin(115200);
@@ -24,11 +24,18 @@ void setup() {
     Serial.println("Start");
     strip.begin();
     delay(50);
-    setHanldesLeds([](uint8_t R, uint8_t G, uint8_t B) {
+    setHandleLed([](uint8_t R, uint8_t G, uint8_t B) {
         strip.setPixelColor(0, strip.Color(R, G, B, 100));
         strip.show();
     });
     setAnimation(animation, strlen(animation));
 }
 
-void loop() { loopAnimation(); }
+uint32_t lastTime = millis();
+void loop() {
+    loopAnimation();
+    if (lastTime != 0 && (millis() - lastTime) > 10000) {
+        lastTime = 0;
+        setStaticColor(255, 0, 255);
+    }
+}
