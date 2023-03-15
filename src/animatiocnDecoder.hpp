@@ -5,9 +5,9 @@
 //**************************************************
 
 typedef struct animation {
-    uint8_t R;      // cor Vermelhar
-    uint8_t G;      // cor Verde
-    uint8_t B;      // cor Azul
+    uint16_t R;     // cor Vermelhar
+    uint16_t G;     // cor Verde
+    uint16_t B;     // cor Azul
     uint16_t fade;  // tempo do fade
     uint16_t time;
     uint32_t at;
@@ -186,7 +186,7 @@ void setAnimation(const char* animation, uint16_t len) {
     uint16_t i = 0;
     animation_t ani;
     memset(&ani, 0, sizeof(animation_t));
-    ani.R = ani.G = ani.B = 0xff;
+    ani.R = ani.G = ani.B = 0xffff;
 
     if (*(animation + len) != ',') {
         memset(const_cast<char*>(animation + len), ',', 1);
@@ -200,7 +200,7 @@ void setAnimation(const char* animation, uint16_t len) {
             addAniation(ani);
             memset(&ani, 0, sizeof(animation_t));
             ani.R = ani.G = ani.B = 0xff;
-            Serial.println("NEXTANIMATION");
+            // Serial.println("NEXTANIMATION");
             // esse satatus indica que o evevnto de animacao esta completo
         } else {
             // idicador de erro no texto
@@ -235,14 +235,14 @@ void loopAnimation() {
         act = actAnimation->value;
     }
     // seta RGB caso nao setado
-    if (act.R == 0xff) act.R = status.R;
-    if (act.G == 0xff) act.G = status.G;
-    if (act.B == 0xff) act.B = status.B;
+    if (act.R == 0xffff) act.R = status.R;
+    if (act.G == 0xffff) act.G = status.G;
+    if (act.B == 0xffff) act.B = status.B;
 
     // coleta os tempos
     if ((act.fade > 0 || act.time > 0) && act.at == 0) {
         act.at = millis();  // seta o tempo de inicio da fade somende se ouver
-                            // um fade ou um temer
+                            // um fade ou um timer
     }
     uint32_t timeOUT = act.at + act.fade + act.time;
 
@@ -250,17 +250,17 @@ void loopAnimation() {
     uint32_t actTime = millis();
     // Serial.println(act.fade);
     if (actTime < timeOUT) {
-        uint8_t R = act.R;
-        uint8_t G = act.G;
-        uint8_t B = act.B;
+        uint16_t R = act.R;
+        uint16_t G = act.G;
+        uint16_t B = act.B;
 
         if (act.fade > 0) {  // somente da fade se ouver
-            uint32_t actTimeFade = max((act.at + act.fade), actTime);
+            uint32_t actTimeFade = max(((act.at + act.fade) - 1), actTime);
             R = map(actTime, act.at, actTimeFade, status.R, act.R);
             G = map(actTime, act.at, actTimeFade, status.G, act.G);
             B = map(actTime, act.at, actTimeFade, status.B, act.B);
         }
-        // Serial.println(actTimeFade);
+        // Serial.printf("R - %d, G - %d, B - %d\n", R, G, B);
         if (hanldesLeds != NULL) {
             (*hanldesLeds)(R, G, B);
         }
